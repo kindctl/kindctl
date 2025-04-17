@@ -50,10 +50,9 @@ jobs:
 
       - name: Set up Docker (macOS)
         if: matrix.os == 'macos-latest'
-        uses: docker/setup-buildx-action@v3
-        with:
-          install: true
-          driver: docker-container
+        run: |
+          brew install colima
+          colima start
       - name: Verify Docker (macOS)
         if: matrix.os == 'macos-latest'
         run: |
