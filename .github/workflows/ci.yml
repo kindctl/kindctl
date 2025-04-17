@@ -54,9 +54,7 @@ jobs:
           brew install docker
           brew install colima
           brew services start colima
-      - name: Verify Docker (macOS)
-        if: matrix.os == 'macos-latest'
-        run: |
+          colima start
           docker --version
           docker ps
 
