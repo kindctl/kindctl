@@ -52,7 +52,7 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: |
           brew install colima
-          colima start
+          brew services start colima
       - name: Verify Docker (macOS)
         if: matrix.os == 'macos-latest'
         run: |
