@@ -5,6 +5,7 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+    types: [ opened, reopened, synchronize ]
 
 jobs:
   test:
@@ -58,7 +59,7 @@ jobs:
       - name: Run integration tests
         run: |
           if [ "${{ matrix.os }}" == "windows-latest" ]; then
-            powershell -Command "scripts/test-integration.sh"
+            powershell -File scripts/test-integration.ps1
           else
             chmod +x scripts/test-integration.sh
             ./scripts/test-integration.sh
