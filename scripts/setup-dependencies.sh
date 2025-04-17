@@ -7,15 +7,19 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# Check if Docker is running
+# Check if Docker is installed
 echo "Checking for Docker..."
 if ! command_exists docker; then
     echo "Error: Docker is not installed. Please install Docker Desktop or Rancher Desktop."
     exit 1
 fi
-if ! docker ps >/dev/null 2>&1; then
-    echo "Error: Docker is not running. Please start Docker Desktop or Rancher Desktop."
-    exit 1
+
+# Skip Docker running check in CI environments
+if [ "$CI" != "true" ]; then
+    if ! docker ps >/dev/null 2>&1; then
+        echo "Error: Docker is not running. Please start Docker Desktop or Rancher Desktop."
+        exit 1
+    fi
 fi
 echo "Docker is installed and running."
 
