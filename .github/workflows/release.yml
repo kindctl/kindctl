@@ -85,50 +85,34 @@ jobs:
         if: runner.os == 'Linux'
         uses: docker/setup-qemu-action@v3
 
-      - name: Verify ARM64 and AMD64 binary using Docker (QEMU)
+
+      - name: ✅ Verify Linux binaries using Docker (QEMU)
+        if: runner.os == 'Linux'
         run: |
-          echo "🔍 Verifying binary functionality for ${{ matrix.arch }} and OS ${{ matrix.os }}..."
-          
-          # Case for macOS platform testing
-          if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            if [[ "${{ matrix.arch }}" == "arm64" ]]; then
-              echo "Running ARM64 binary on macOS (Docker with QEMU)"
-              docker run --rm --platform linux/arm64/v8 -v $PWD:/workspace -w /workspace mcr.microsoft.com/dotnet/core/sdk:3.1-bionic \
-                bash -c "./bin/kindctl-darwin-arm64 --version && ./bin/kindctl-darwin-arm64 --help"
-            else
-              echo "Running AMD64 binary on macOS (Docker with QEMU)"
-              docker run --rm --platform linux/amd64 -v $PWD:/workspace -w /workspace mcr.microsoft.com/dotnet/core/sdk:3.1-bionic \
-                bash -c "./bin/kindctl-darwin-amd64 --version && ./bin/kindctl-darwin-amd64 --help"
-            fi
-          fi
-          
-          # Case for Linux platform testing
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            if [[ "${{ matrix.arch }}" == "arm64" ]]; then
-              echo "Running ARM64 binary on Linux"
-              docker run --rm --platform linux/arm64 -v $PWD:/workspace -w /workspace ubuntu:22.04 \
-                bash -c "./bin/kindctl-linux-arm64 --version && ./bin/kindctl-linux-arm64 --help"
-            else
-              echo "Running AMD64 binary on Linux"
-              docker run --rm --platform linux/amd64 -v $PWD:/workspace -w /workspace ubuntu:latest \
-                bash -c "./bin/kindctl-linux-amd64 --version && ./bin/kindctl-linux-amd64 --help"
-            fi
-          fi
-          
-          # Case for Windows platform testing
-          if [[ "${{ matrix.os }}" == "windows" ]]; then
-            if [[ "${{ matrix.arch }}" == "arm64" ]]; then
-              echo "Running ARM64 binary on Windows (Docker with QEMU)"
-              docker run --rm --platform linux/arm64/v8 -v $PWD:/workspace -w /workspace mcr.microsoft.com/windows/servercore:ltsc2019 \
-                bash -c "./bin/kindctl-windows-arm64.exe --version && ./bin/kindctl-windows-arm64.exe --help"
-            else
-              echo "Running AMD64 binary on Windows (Docker with QEMU)"
-              docker run --rm --platform linux/amd64 -v $PWD:/workspace -w /workspace mcr.microsoft.com/windows/servercore:ltsc2019 \
-                bash -c "./bin/kindctl-windows-amd64.exe --version && ./bin/kindctl-windows-amd64.exe --help"
-            fi
+          echo "🔍 Verifying Linux binaries for ${{ matrix.arch }}"
+
+          if [[ "${{ matrix.arch }}" == "arm64" ]]; then
+            echo "▶ Running kindctl-linux-arm64 inside ARM64 Docker container..."
+            docker run --rm --platform linux/arm64 -v $PWD:/workspace -w /workspace ubuntu:22.04 \
+              bash -c "./bin/kindctl-linux-arm64 --version && ./bin/kindctl-linux-arm64 --help"
+          else
+            echo "▶ Running kindctl-linux-amd64 inside AMD64 Docker container..."
+            docker run --rm --platform linux/amd64 -v $PWD:/workspace -w /workspace ubuntu:latest \
+              bash -c "./bin/kindctl-linux-amd64 --version && ./bin/kindctl-linux-amd64 --help"
           fi
         shell: bash
         working-directory: kindctl
+
+
+      - name: ✅ Verify MacOs binaries
+        if: runner.os == 'macOS'
+        run: |
+          echo "🔍 Verifying macOS binary for ${{ matrix.arch }}..."
+          chmod +x ./bin/kindctl-darwin-${{ matrix.arch }}
+          ./bin/kindctl-darwin-${{ matrix.arch }} --version
+          ./bin/kindctl-darwin-${{ matrix.arch }} --help
+          shell: bash
+          working-directory: kindctl
       
 
       - name: Create release directory
