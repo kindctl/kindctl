@@ -39,6 +39,7 @@ jobs:
       - name: Install colima for Docker (macOS)
         if: matrix.os == 'macos-latest'
         run: |
+          brew install docker
           brew install colima
           colima start --runtime docker
           ln -s ~/.colima/default/docker.sock /var/run/docker.sock
