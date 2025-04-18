@@ -126,6 +126,9 @@ jobs:
         working-directory: kindctl
         shell: bash
 
+      - name: 🏗 Setup QEMU for multi-arch Docker
+        uses: docker/setup-qemu-action@v3
+
       - name: Verify ARM64 and AMD64 binary using Docker (QEMU)
         run: |
           echo "🔍 Verifying binary functionality for ${{ matrix.arch }} and OS ${{ matrix.os }}..."
@@ -147,7 +150,7 @@ jobs:
           if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             if [[ "${{ matrix.arch }}" == "arm64" ]]; then
               echo "Running ARM64 binary on Linux"
-              docker run --rm --platform linux/arm64/v8 -v $PWD:/workspace -w /workspace ubuntu:latest \
+              docker run --rm --platform linux/arm64 -v $PWD:/workspace -w /workspace ubuntu:22.04 \
                 bash -c "./bin/kindctl-linux-arm64 --version && ./bin/kindctl-linux-arm64 --help"
             else
               echo "Running AMD64 binary on Linux"
