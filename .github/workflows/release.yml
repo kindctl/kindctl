@@ -79,6 +79,32 @@ jobs:
         working-directory: kindctl
         shell: bash
 
+      - name: Verify installer works
+        run: |
+          echo "🔍 Verifying binary functionality..."
+          
+          case "${{ matrix.os }}" in
+            windows-latest)
+              BINARY="./bin/kindctl-windows-${{ matrix.arch }}.exe"
+              ;;
+            macos-latest)
+              BINARY="./bin/kindctl-darwin-${{ matrix.arch }}"
+              ;;
+            ubuntu-latest)
+              BINARY="./bin/kindctl-linux-${{ matrix.arch }}"
+              ;;
+          esac
+          
+          echo "▶ Running $BINARY --version"
+          $BINARY --version || (echo "❌ $BINARY --version failed" && exit 1)
+          
+          echo "▶ Running $BINARY --help"
+          $BINARY --help || (echo "❌ $BINARY --help failed" && exit 1)
+          
+          echo "✅ $BINARY passed verification."
+        working-directory: kindctl
+        shell: bash
+
       - name: Create release directory
         run: |
           mkdir -p releases/download/${{ env.VERSION }}
