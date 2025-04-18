@@ -2,9 +2,8 @@ name: Build and Release
 
 on:
   push:
-    branches: [ cli-development ]
-#    tags:
-#      - 'v*'
+    tags:
+      - 'v*'
 
 jobs:
   build:
@@ -26,6 +25,12 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.21'
+
+      - name: Get tag version
+        id: tag
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+        working-directory: kindctl
+        shell: bash
 
       - name: Build binary
         run: |
@@ -51,25 +56,17 @@ jobs:
         working-directory: kindctl
         shell: bash
 
-      - name: Debug project files
-        run: |
-          ls -la
-          ls -la cmd/kindctl
-          cat cmd/kindctl/main.go
-        working-directory: kindctl
-        shell: bash
-
       - name: Create release directory
         run: |
-          mkdir -p releases/download/v0.0.0
-          mv bin/* releases/download/v0.0.0/
+          mkdir -p releases/download/${{ env.VERSION }}
+          mv bin/* releases/download/${{ env.VERSION }}/
         working-directory: kindctl
         shell: bash
 
       - name: Copy install scripts
         run: |
-          cp scripts/install.sh releases/download/v0.0.0/
-          cp scripts/install.ps1 releases/download/v0.0.0/
+          cp scripts/install.sh releases/download/${{ env.VERSION }}/
+          cp scripts/install.ps1 releases/download/${{ env.VERSION }}/
         working-directory: kindctl
         shell: bash
 
@@ -77,9 +74,10 @@ jobs:
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git add releases/download/v0.0.0
-          git commit -m "Add release assets for v0.0.0" || echo "No changes to commit"
-          git push origin
+          git add releases/download/${{ env.VERSION }}
+          git commit -m "Add release assets for ${{ env.VERSION }}" || echo "No changes to commit"
+          git pull --rebase origin "$GITHUB_REF_NAME"
+          git push origin "$GITHUB_REF_NAME"
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         working-directory: kindctl
