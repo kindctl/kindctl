@@ -189,10 +189,17 @@ jobs:
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
+          
+          # Ensure we pull and merge/rebase the latest changes from the remote branch
+          git fetch origin
+          git rebase origin/cli-development || git merge origin/cli-development
+          
+          # Add and commit release assets
           git add releases/download/${{ env.VERSION }}
           git commit -m "Add release assets for ${{ env.VERSION }}" || echo "No changes to commit"
-          git pull --rebase origin "$GITHUB_REF_NAME"
-          git push origin "$GITHUB_REF_NAME"
+          
+          # Push changes to the remote branch
+          git push origin cli-development
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         working-directory: kindctl
