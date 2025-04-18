@@ -135,7 +135,7 @@ jobs:
             --platform linux/arm64 \
             -v "$(pwd):/workspace" \
             -w /workspace \
-            tonistiigi/xx:latest \
+            multiarch/ubuntu-core:latest \
             /bin/sh -c "./bin/kindctl-linux-arm64 --version && ./bin/kindctl-linux-arm64 --help"
       
 
