@@ -20,6 +20,26 @@ jobs:
           fetch-depth: 0  # Fetch all history to allow branch operations
           token: ${{ secrets.PAT_TOKEN }}  # Use PAT for authentication
 
+      - name: Debug directory contents
+        run: |
+          pwd
+          ls -la
+          find . -type f
+        shell: bash
+
+      - name: Verify go.mod and main.go
+        run: |
+          if [ ! -f go.mod ]; then
+            echo "Error: go.mod not found"
+            exit 1
+          fi
+          if [ ! -f cmd/kindctl/main.go ]; then
+            echo "Error: cmd/kindctl/main.go not found"
+            exit 1
+          fi
+          echo "go.mod and cmd/kindctl/main.go found"
+        shell: bash
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -28,6 +48,7 @@ jobs:
       - name: Get tag version
         id: tag
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+        shell: bash
 
       - name: Determine default branch
         id: branch
@@ -40,11 +61,13 @@ jobs:
           echo "DEFAULT_BRANCH=$DEFAULT_BRANCH" >> $GITHUB_ENV
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+        shell: bash
 
       - name: Checkout default branch
         run: |
           git checkout ${{ env.DEFAULT_BRANCH }}
           git pull origin ${{ env.DEFAULT_BRANCH }}
+        shell: bash
 
       - name: Build binary
         run: |
@@ -62,19 +85,23 @@ jobs:
               GOOS="linux"
               ;;
           esac
+          mkdir -p bin
           GOARCH=${{ matrix.arch }} go build -o bin/$BINARY ./cmd/kindctl
         env:
           CGO_ENABLED: 0
+        shell: bash
 
       - name: Create release directory
         run: |
           mkdir -p releases/download/${{ env.VERSION }}
           mv bin/* releases/download/${{ env.VERSION }}/
+        shell: bash
 
       - name: Copy install scripts
         run: |
           cp scripts/install.sh releases/download/${{ env.VERSION }}/
           cp scripts/install.ps1 releases/download/${{ env.VERSION }}/
+        shell: bash
 
       - name: Commit release assets
         run: |
@@ -85,6 +112,7 @@ jobs:
           git push origin ${{ env.DEFAULT_BRANCH }}
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+        shell: bash
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
