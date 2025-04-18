@@ -139,35 +139,35 @@ jobs:
         working-directory: kindctl
         shell: bash
 
-      - name: Commit release assets
-        run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-
-          # Ensure we pull the latest changes from main
-          git fetch origin
-          git checkout main
-          git pull origin main
-
-          # Create a new release branch based on the main branch
-          RELEASE_BRANCH="release/${{ env.VERSION }}"
-          git checkout -b "$RELEASE_BRANCH"
-
-          # Add and commit release assets
-          git add releases/download/${{ env.VERSION }}
-          git commit -m "Add release assets for ${{ env.VERSION }}" || echo "No changes to commit"
-
-          # Push the release branch to GitHub
-          git push origin "$RELEASE_BRANCH"
-
-          # Create a pull request to the main branch
-          PR_URL=$(curl -s -X POST \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -d '{"title":"Release ${{ env.VERSION }}","head":"'"$RELEASE_BRANCH"'","base":"main"}' \
-            https://api.github.com/repos/kindctl/kindctl/pulls | jq -r .url)
-
-          echo "PR created: $PR_URL"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        working-directory: kindctl
-        shell: bash
+#      - name: Commit release assets
+#        run: |
+#          git config user.name "GitHub Actions"
+#          git config user.email "actions@github.com"
+#
+#          # Ensure we pull the latest changes from main
+#          git fetch origin
+#          git checkout main
+#          git pull origin main
+#
+#          # Create a new release branch based on the main branch
+#          RELEASE_BRANCH="release/${{ env.VERSION }}"
+#          git checkout -b "$RELEASE_BRANCH"
+#
+#          # Add and commit release assets
+#          git add releases/download/${{ env.VERSION }}
+#          git commit -m "Add release assets for ${{ env.VERSION }}" || echo "No changes to commit"
+#
+#          # Push the release branch to GitHub
+#          git push origin "$RELEASE_BRANCH"
+#
+#          # Create a pull request to the main branch
+#          PR_URL=$(curl -s -X POST \
+#            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+#            -d '{"title":"Release ${{ env.VERSION }}","head":"'"$RELEASE_BRANCH"'","base":"main"}' \
+#            https://api.github.com/repos/kindctl/kindctl/pulls | jq -r .url)
+#
+#          echo "PR created: $PR_URL"
+#        env:
+#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#        working-directory: kindctl
+#        shell: bash
