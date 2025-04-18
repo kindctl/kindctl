@@ -113,6 +113,8 @@ jobs:
           ./bin/kindctl-darwin-${{ matrix.arch }} --help
           shell: bash
           working-directory: kindctl
+        working-directory: kindctl
+        shell: bash
       
 
       - name: Create release directory
