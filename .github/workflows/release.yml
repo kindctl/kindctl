@@ -22,18 +22,6 @@ jobs:
           token: ${{ secrets.PAT_TOKEN }}
           path: kindctl
 
-      - name: Change to project directory
-        run: cd kindctl
-        shell: bash
-
-      - name: Debug directory contents
-        run: |
-          pwd
-          ls -la
-          find . -type f
-        working-directory: kindctl
-        shell: bash
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
