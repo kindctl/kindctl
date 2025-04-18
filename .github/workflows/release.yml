@@ -2,9 +2,8 @@ name: Build and Release
 
 on:
   push:
-    branches: [ cli-development ]
-#    tags:
-#      - 'v*'
+    tags:
+      - 'v*'
 
 jobs:
   build:
