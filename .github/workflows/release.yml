@@ -90,7 +90,7 @@ jobs:
           echo "🔍 Verifying binary functionality for ${{ matrix.arch }} and OS ${{ matrix.os }}..."
           
           # Case for macOS platform testing
-          if [[ "${{ matrix.os }}" == "macos" ]]; then
+          if [[ "${{ matrix.os }}" == "macos-latest" ]]; then
             if [[ "${{ matrix.arch }}" == "arm64" ]]; then
               echo "Running ARM64 binary on macOS (Docker with QEMU)"
               docker run --rm --platform linux/arm64/v8 -v $PWD:/workspace -w /workspace mcr.microsoft.com/dotnet/core/sdk:3.1-bionic \
