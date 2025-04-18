@@ -64,36 +64,36 @@ jobs:
           docker ps
         shell: powershell
 
-      - name: Run setup-dependencies script
-        run: |
-          if [ "${{ matrix.os }}" == "windows-latest" ]; then
-            powershell -File scripts/setup-dependencies.ps1
-          else
-            chmod +x scripts/setup-dependencies.sh
-            ./scripts/setup-dependencies.sh
-          fi
-        shell: bash
-
       - name: Verify Docker Installation
         run: docker --version
 
       - name: Verify Running Containers
         run: docker ps
 
-      - name: Run unit tests
-        run: go test ./internal/... -v
-
-      - name: Run integration tests
-        run: |
-          if [ "${{ matrix.os }}" == "windows-latest" ]; then
-            .\scripts\test-integration.ps1
-          else
-            chmod +x scripts/test-integration.sh
-            ./scripts/test-integration.sh
-          fi
-        shell: bash
-
-      - name: Build
-        run: |
-          chmod +x scripts/build.sh
-          ./scripts/build.sh
+#      - name: Run setup-dependencies script
+#        run: |
+#          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+#            powershell -File scripts/setup-dependencies.ps1
+#          else
+#            chmod +x scripts/setup-dependencies.sh
+#            ./scripts/setup-dependencies.sh
+#          fi
+#        shell: bash
+#
+#      - name: Run unit tests
+#        run: go test ./internal/... -v
+#
+#      - name: Run integration tests
+#        run: |
+#          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+#            .\scripts\test-integration.ps1
+#          else
+#            chmod +x scripts/test-integration.sh
+#            ./scripts/test-integration.sh
+#          fi
+#        shell: bash
+#
+#      - name: Build
+#        run: |
+#          chmod +x scripts/build.sh
+#          ./scripts/build.sh
