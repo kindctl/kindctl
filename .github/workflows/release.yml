@@ -113,11 +113,11 @@ jobs:
           if [[ "$(uname -m)" != "aarch64" && "$BINARY" == *"linux-arm64"* ]]; then
             echo "⚠️ Skipping execution of $BINARY on amd64 runner"
           else
-            echo "▶ Running $BINARY --version"
-            $BINARY --version || (echo "❌ $BINARY --version failed" && exit 1)
+            echo "▶ Running ./bin/$BINARY --version"
+            ./bin/$BINARY --version || (echo "❌ $BINARY --version failed" && exit 1)
         
-            echo "▶ Running $BINARY --help"
-            $BINARY --help || (echo "❌ $BINARY --help failed" && exit 1)
+            echo "▶ Running ./bin/$BINARY --help"
+            ./bin/$BINARY --help || (echo "❌ $BINARY --help failed" && exit 1)
         
             echo "✅ $BINARY passed verification."
           fi
