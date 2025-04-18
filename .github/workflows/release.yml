@@ -117,13 +117,14 @@ jobs:
       - name: ✅ Verify Windows binaries
         if: runner.os == 'Windows'
         run: |
-          Write-Host "🔍 Verifying Windows binary for ${{ matrix.arch }}..."
+          Write-Host "Verifying Windows binary for ${{ matrix.arch }}..."
           .\bin\kindctl-windows-${{ matrix.arch }}.exe --version
           .\bin\kindctl-windows-${{ matrix.arch }}.exe --help
         working-directory: kindctl
         shell: powershell
 
-      
+
+
 
       - name: Create release directory
         run: |
