@@ -11,7 +11,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        arch: [amd64]
+        arch: [amd64, arm64]
 
     steps:
       - name: Checkout code
@@ -32,27 +32,45 @@ jobs:
         working-directory: kindctl
         shell: bash
 
-      - name: Build binary
+      - name: Build and package binary
         run: |
-          set -ex
+          set -e
+          
           case "${{ matrix.os }}" in
             windows-latest)
-              BINARY="kindctl-windows-${{ matrix.arch }}.exe"
-              GOOS="windows"
+              EXT=".exe"
+              OS_NAME="windows"
               ;;
             macos-latest)
-              BINARY="kindctl-darwin-${{ matrix.arch }}"
-              GOOS="darwin"
+              EXT=""
+              OS_NAME="darwin"
               ;;
             ubuntu-latest)
-              BINARY="kindctl-linux-${{ matrix.arch }}"
-              GOOS="linux"
+              EXT=""
+              OS_NAME="linux"
               ;;
           esac
+          
+          BINARY="kindctl-${OS_NAME}-${{ matrix.arch }}${EXT}"
+          ARCHIVE="${BINARY%.*}"
+          
+          echo "🛠 Building $BINARY..."
           mkdir -p bin
-          GOOS=$GOOS GOARCH=${{ matrix.arch }} go build -o bin/$BINARY ./cmd/kindctl
-        env:
-          CGO_ENABLED: 0
+          GOARCH=${{ matrix.arch }} GOOS=$OS_NAME CGO_ENABLED=0 go build -o bin/$BINARY ./cmd/kindctl
+          
+          echo "📦 Packaging $ARCHIVE..."
+          cd bin
+          if [[ "$EXT" == ".exe" ]]; then
+            zip "${ARCHIVE}.zip" "$BINARY"
+          else
+            tar -czvf "${ARCHIVE}.tar.gz" "$BINARY"
+          fi
+          cd ..
+          
+          echo "📁 Moving archive to release directory..."
+          mkdir -p releases/download/v0.0.0
+          mv bin/*.zip bin/*.tar.gz releases/download/v0.0.0/ || true
+          ls -la releases/download/v0.0.0/
         working-directory: kindctl
         shell: bash
 
