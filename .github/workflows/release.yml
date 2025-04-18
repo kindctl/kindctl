@@ -79,66 +79,53 @@ jobs:
         working-directory: kindctl
         shell: bash
 
-      - name: Verify installer works
+      - name: Verify binary functionality
         run: |
           echo "🔍 Verifying binary functionality..."
-          
+
           case "${{ matrix.os }}" in
             windows-latest)
+              # On Windows, use Windows-based Docker image to test `windows-arm64` or `windows-amd64` binaries
               if [ "${{ matrix.arch }}" == "arm64" ]; then
-                BINARY="kindctl-windows-arm64.exe"
+                echo "▶ Testing ARM64 binary on Windows..."
+                # Use Windows container to test ARM64
+                docker run --rm --privileged --platform windows/arm64 -v $PWD:/workspace -w /workspace mcr.microsoft.com/windows/servercore:ltsc2019 \
+                  cmd /c "./bin/kindctl-windows-arm64.exe --version && ./bin/kindctl-windows-arm64.exe --help"
               else
-                BINARY="kindctl-windows-amd64.exe"
-              GOOS="windows"
+                echo "▶ Testing AMD64 binary on Windows..."
+                # Use Windows container to test AMD64
+                docker run --rm --platform windows/amd64 -v $PWD:/workspace -w /workspace mcr.microsoft.com/windows/servercore:ltsc2019 \
+                  cmd /c "./bin/kindctl-windows-amd64.exe --version && ./bin/kindctl-windows-amd64.exe --help"
               fi
               ;;
+
             macos-latest)
+              # For macOS, test ARM64 or AMD64 using a macOS Docker image
               if [ "${{ matrix.arch }}" == "arm64" ]; then
-                BINARY="kindctl-darwin-arm64"
+                echo "▶ Testing ARM64 binary on macOS..."
+                docker run --rm --privileged --platform darwin/arm64 -v $PWD:/workspace -w /workspace --entrypoint /bin/bash \
+                  ghcr.io/linuxserver/iohook:latest -c "./bin/kindctl-darwin-arm64 --version && ./bin/kindctl-darwin-arm64 --help"
               else
-                BINARY="kindctl-darwin-amd64"
+                echo "▶ Testing AMD64 binary on macOS..."
+                docker run --rm --privileged --platform darwin/amd64 -v $PWD:/workspace -w /workspace --entrypoint /bin/bash \
+                  ghcr.io/linuxserver/iohook:latest -c "./bin/kindctl-darwin-amd64 --version && ./bin/kindctl-darwin-amd64 --help"
               fi
-              GOOS="darwin"
               ;;
+
             ubuntu-latest)
+              # On Ubuntu, use Ubuntu image to test both ARM64 and AMD64
               if [ "${{ matrix.arch }}" == "arm64" ]; then
-                BINARY="kindctl-linux-arm64"
+                echo "▶ Testing ARM64 binary on Ubuntu..."
+                docker run --rm --privileged --platform linux/arm64/v8 -v $PWD:/workspace -w /workspace ubuntu:latest \
+                  bash -c "./bin/kindctl-linux-arm64 --version && ./bin/kindctl-linux-arm64 --help"
               else
-                BINARY="kindctl-linux-amd64"
+                echo "▶ Testing AMD64 binary on Ubuntu..."
+                docker run --rm --privileged --platform linux/amd64 -v $PWD:/workspace -w /workspace ubuntu:latest \
+                  bash -c "./bin/kindctl-linux-amd64 --version && ./bin/kindctl-linux-amd64 --help"
               fi
-              GOOS="linux"
               ;;
           esac
-          
-          if [[ "$(uname -m)" != "aarch64" && "$BINARY" == *"linux-arm64"* ]]; then
-            echo "⚠️ Skipping execution of $BINARY on amd64 runner"
-          else
-            echo "▶ Running ./bin/$BINARY --version"
-            ./bin/$BINARY --version || (echo "❌ $BINARY --version failed" && exit 1)
-        
-            echo "▶ Running ./bin/$BINARY --help"
-            ./bin/$BINARY --help || (echo "❌ $BINARY --help failed" && exit 1)
-        
-            echo "✅ $BINARY passed verification."
-          fi
         working-directory: kindctl
-        shell: bash
-
-      - name: Set up QEMU
-        if: matrix.arch == 'arm64' && matrix.os == 'ubuntu-latest'
-        uses: docker/setup-qemu-action@v3
-
-      - name: Verify ARM64 binary using Fedora (QEMU emulation)
-        if: matrix.arch == 'arm64' && matrix.os == 'ubuntu-latest'
-        run: |
-          docker run --rm --privileged \
-            --platform linux/arm64 \
-            -v "$(pwd):/workspace" \
-            -w /workspace \
-            fedora:latest \
-            bash -c "dnf install -y qemu-user-static && ./bin/kindctl-linux-arm64 --version && ./bin/kindctl-linux-arm64 --help"
-      
-      
 
       - name: Create release directory
         run: |
