@@ -125,10 +125,12 @@ jobs:
         shell: bash
 
       - name: Verify ARM64 build (using Docker for ARM emulation)
-        if: matrix.arch == 'arm64'
+        if: matrix.arch == 'arm64' && matrix.os == 'ubuntu-latest'
         run: |
           docker run --rm --platform linux/arm64/v8 -v $PWD:/workspace -w /workspace ubuntu:latest \
-            bash -c "./bin/kindctl-linux-arm64 --version"
+            bash -c "./bin/kindctl-linux-arm64 --version && ./bin/kindctl-linux-arm64 --help"
+        working-directory: kindctl
+        shell: bash
 
       - name: Create release directory
         run: |
