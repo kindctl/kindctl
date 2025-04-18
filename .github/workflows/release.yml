@@ -31,19 +31,7 @@ jobs:
           pwd
           ls -la
           find . -type f
-        shell: bash
-
-      - name: Verify go.mod and main.go
-        run: |
-          if [ ! -f go.mod ]; then
-            echo "Error: go.mod not found"
-            exit 1
-          fi
-          if [ ! -f cmd/kindctl/main.go ]; then
-            echo "Error: cmd/kindctl/main.go not found"
-            exit 1
-          fi
-          echo "go.mod and cmd/kindctl/main.go found"
+        working-directory: kindctl
         shell: bash
 
       - name: Set up Go
