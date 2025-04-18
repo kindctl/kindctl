@@ -28,28 +28,33 @@ jobs:
           go mod download
           ls -l go.mod go.sum || echo "go.mod or go.sum missing"
 
-      - name: Set up Docker (Linux)
+      # Linux setup (Docker is pre-installed)
+      - name: Start Docker (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo systemctl start docker
-          docker --version
+          sudo chmod 666 /var/run/docker.sock
 
-      - name: Set up Docker (macOS)
+      # macOS setup
+      - name: Install colima for Docker (macOS)
         if: matrix.os == 'macos-latest'
-        uses: docker/setup-buildx-action@v3
-        with:
-          install: true
-
-      - name: Set up Docker (Windows)
-        if: matrix.os == 'windows-latest'
-        uses: docker/setup-buildx-action@v3
-        with:
-          install: true
-
-      - name: Verify Docker Installation
-        run: docker --version
-
-      - name: Verify Docker is operational
         run: |
+          brew install colima
+          colima start --runtime docker
+          ln -s ~/.colima/default/docker.sock /var/run/docker.sock
+
+      # Windows setup
+      - name: Install Docker (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          choco install docker-cli -y
+          choco install docker-machine -y
+          docker-machine create --driver hyperv default
+          docker-machine env default | Invoke-Expression
+        shell: powershell
+
+      - name: Verify Docker
+        run: |
+          docker --version
           docker info
           docker ps
