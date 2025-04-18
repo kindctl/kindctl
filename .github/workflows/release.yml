@@ -188,18 +188,31 @@ jobs:
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          
-          # Ensure we pull and merge/rebase the latest changes from the remote branch
+
+          # Ensure we pull the latest changes from main
           git fetch origin
-          git rebase origin/cli-development || git merge origin/cli-development
-          
+          git checkout main
+          git pull origin main
+
+          # Create a new release branch based on the main branch
+          RELEASE_BRANCH="release/${{ env.VERSION }}"
+          git checkout -b "$RELEASE_BRANCH"
+
           # Add and commit release assets
           git add releases/download/${{ env.VERSION }}
           git commit -m "Add release assets for ${{ env.VERSION }}" || echo "No changes to commit"
-          
-          # Push changes to the remote branch
-          git push origin cli-development
+
+          # Push the release branch to GitHub
+          git push origin "$RELEASE_BRANCH"
+
+          # Create a pull request to the main branch
+          PR_URL=$(curl -s -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -d '{"title":"Release ${{ env.VERSION }}","head":"'"$RELEASE_BRANCH"'","base":"main"}' \
+            https://api.github.com/repos/kindctl/kindctl/pulls | jq -r .url)
+
+          echo "PR created: $PR_URL"
         env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         working-directory: kindctl
         shell: bash
