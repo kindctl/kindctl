@@ -28,23 +28,34 @@ jobs:
           go mod download
           ls -l go.mod go.sum || echo "go.mod or go.sum missing"
 
-      # Linux setup
+      # Linux setup (uses pre-installed Docker)
       - name: Setup Docker (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo systemctl start docker
           sudo chmod 666 /var/run/docker.sock
 
-      # macOS and Windows setup using official Docker actions
-      - name: Set up Docker Buildx
-        if: matrix.os != 'ubuntu-latest'
-        uses: docker/setup-buildx-action@v3
-        with:
-          driver: docker-container
-          install: true
+      # macOS setup (uses Docker's experimental VM-less mode)
+      - name: Setup Docker (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install docker docker-buildx
+          mkdir -p ~/.docker/cli-plugins
+          ln -sfn $(brew --prefix)/opt/docker-buildx/bin/docker-buildx ~/.docker/cli-plugins/docker-buildx
+          docker buildx create --use --driver=docker-container
+          docker buildx inspect --bootstrap
+
+      # Windows setup (uses Docker CLI with buildx)
+      - name: Setup Docker (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          choco install docker-cli docker-buildx -y
+          docker buildx create --use --driver=docker-container
+          docker buildx inspect --bootstrap
+        shell: powershell
 
       - name: Verify Docker
         run: |
           docker --version
-          docker buildx version
+          docker buildx ls
           docker buildx inspect
