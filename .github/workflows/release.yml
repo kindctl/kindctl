@@ -32,6 +32,11 @@ jobs:
         working-directory: kindctl
         shell: bash
 
+      - name: Install zip on Windows
+        if: matrix.os == 'windows-latest'
+        run: choco install zip
+        shell: powershell
+
       - name: Build and package binary
         run: |
           set -e
