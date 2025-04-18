@@ -1,0 +1,84 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        arch: [amd64]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.PAT_TOKEN }}
+          path: kindctl
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Get tag version
+        id: tag
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+        working-directory: kindctl
+        shell: bash
+
+      - name: Build binary
+        run: |
+          set -ex
+          case "${{ matrix.os }}" in
+            windows-latest)
+              BINARY="kindctl-windows-${{ matrix.arch }}.exe"
+              GOOS="windows"
+              ;;
+            macos-latest)
+              BINARY="kindctl-darwin-${{ matrix.arch }}"
+              GOOS="darwin"
+              ;;
+            ubuntu-latest)
+              BINARY="kindctl-linux-${{ matrix.arch }}"
+              GOOS="linux"
+              ;;
+          esac
+          mkdir -p bin
+          GOOS=$GOOS GOARCH=${{ matrix.arch }} go build -o bin/$BINARY ./cmd/kindctl
+        env:
+          CGO_ENABLED: 0
+        working-directory: kindctl
+        shell: bash
+
+      - name: Create release directory
+        run: |
+          mkdir -p releases/download/${{ env.VERSION }}
+          mv bin/* releases/download/${{ env.VERSION }}/
+        working-directory: kindctl
+        shell: bash
+
+      - name: Copy install scripts
+        run: |
+          cp scripts/install.sh releases/download/${{ env.VERSION }}/
+          cp scripts/install.ps1 releases/download/${{ env.VERSION }}/
+        working-directory: kindctl
+        shell: bash
+
+      - name: Commit release assets
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add releases/download/${{ env.VERSION }}
+          git commit -m "Add release assets for ${{ env.VERSION }}" || echo "No changes to commit"
+          git pull --rebase origin "$GITHUB_REF_NAME"
+          git push origin "$GITHUB_REF_NAME"
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+        working-directory: kindctl
+        shell: bash
