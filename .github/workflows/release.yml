@@ -61,7 +61,7 @@ jobs:
           
           echo "🛠 Building $BINARY..."
           mkdir -p bin
-          GOARCH=${{ matrix.arch }} GOOS=$OS_NAME CGO_ENABLED=0 go build -o bin/$BINARY ./cmd/kindctl
+          GOARCH=${{ matrix.arch }} GOOS=$OS_NAME CGO_ENABLED=0 go build -ldflags "-X main.version=${{ env.VERSION }}" -o bin/$BINARY ./cmd/kindctl
           
           echo "📦 Packaging $ARCHIVE..."
           cd bin
@@ -73,9 +73,9 @@ jobs:
           cd ..
           
           echo "📁 Moving archive to release directory..."
-          mkdir -p releases/download/v0.0.0
-          mv bin/*.zip bin/*.tar.gz releases/download/v0.0.0/ || true
-          ls -la releases/download/v0.0.0/
+          mkdir -p releases/download/${{ env.VERSION }}
+          mv bin/*.zip bin/*.tar.gz releases/download/${{ env.VERSION }}/ || true
+          ls -la releases/download/${{ env.VERSION }}/
         working-directory: kindctl
         shell: bash
 
