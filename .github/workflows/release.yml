@@ -112,7 +112,7 @@ jobs:
           ./bin/kindctl-darwin-${{ matrix.arch }} --version
           ./bin/kindctl-darwin-${{ matrix.arch }} --help
         working-directory: kindctl
-        shell: powershell
+        shell: bash
 
 
       - name: ✅ Verify Windows binaries
@@ -122,7 +122,7 @@ jobs:
           .\bin\kindctl-windows-${{ matrix.arch }}.exe --version
           .\bin\kindctl-windows-${{ matrix.arch }}.exe --help
         working-directory: kindctl
-        shell: bash
+        shell: powershell
       
 
       - name: Create release directory
