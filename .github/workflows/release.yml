@@ -70,6 +70,7 @@ jobs:
         run: |
           cp scripts/install.sh releases/download/v0.0.0/
           cp scripts/install.ps1 releases/download/v0.0.0/
+        working-directory: kindctl
         shell: bash
 
       - name: Commit release assets
