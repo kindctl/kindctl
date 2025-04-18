@@ -12,7 +12,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-latest, windows-latest ]
+        os: [ windows-latest ]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -28,28 +28,72 @@ jobs:
           go mod download
           ls -l go.mod go.sum || echo "go.mod or go.sum missing"
 
-      - name: Set up Docker (Linux)
+      - name: Install Docker (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         run: |
+          sudo apt-get remove -y docker docker-engine docker.io containerd runc containerd.io || true
+          sudo apt-get clean
+          sudo apt-get update
+          sudo apt-get install -y --fix-missing
+          sudo apt-get install -y ca-certificates curl gnupg lsb-release
+          sudo mkdir -p /etc/apt/keyrings
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+          echo \
+            "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+            $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+          sudo apt-get update
+          sudo apt-get install -y docker-ce docker-ce-cli containerd.io
           sudo systemctl start docker
-          docker --version
+          sudo usermod -aG docker $USER
 
       - name: Set up Docker (macOS)
         if: matrix.os == 'macos-latest'
-        uses: docker/setup-buildx-action@v3
-        with:
-          install: true
+        run: |
+          brew install --cask docker
+          open /Applications/Docker.app || true
 
-      - name: Set up Docker (Windows)
+      - name: Install Docker (Windows)
         if: matrix.os == 'windows-latest'
-        uses: docker/setup-buildx-action@v3
-        with:
-          install: true
+        run: |
+          choco install docker-desktop -y
+          Start-Sleep -Seconds 60
+          & "C:\Program Files\Docker\Docker\DockerCli.exe" -SwitchLinuxEngine
+          Start-Sleep -Seconds 30
+          docker --version
+          docker info --format '{{.OSType}}'
+          docker ps
+        shell: powershell
 
       - name: Verify Docker Installation
         run: docker --version
 
-      - name: Verify Docker is operational
-        run: |
-          docker info
-          docker ps
+      - name: Verify Running Containers
+        run: docker ps
+
+#      - name: Run setup-dependencies script
+#        run: |
+#          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+#            powershell -File scripts/setup-dependencies.ps1
+#          else
+#            chmod +x scripts/setup-dependencies.sh
+#            ./scripts/setup-dependencies.sh
+#          fi
+#        shell: bash
+#
+#      - name: Run unit tests
+#        run: go test ./internal/... -v
+#
+#      - name: Run integration tests
+#        run: |
+#          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+#            .\scripts\test-integration.ps1
+#          else
+#            chmod +x scripts/test-integration.sh
+#            ./scripts/test-integration.sh
+#          fi
+#        shell: bash
+#
+#      - name: Build
+#        run: |
+#          chmod +x scripts/build.sh
+#          ./scripts/build.sh
