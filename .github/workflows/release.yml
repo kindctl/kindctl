@@ -16,6 +16,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history to allow branch operations
+          token: ${{ secrets.PAT_TOKEN }}  # Use PAT for authentication
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -25,6 +28,23 @@ jobs:
       - name: Get tag version
         id: tag
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - name: Determine default branch
+        id: branch
+        run: |
+          DEFAULT_BRANCH=$(git ls-remote --heads origin | grep -E 'refs/heads/(main|master)$' | awk '{print $2}' | cut -d'/' -f3)
+          if [ -z "$DEFAULT_BRANCH" ]; then
+            echo "Error: Could not determine default branch (main or master)"
+            exit 1
+          fi
+          echo "DEFAULT_BRANCH=$DEFAULT_BRANCH" >> $GITHUB_ENV
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+
+      - name: Checkout default branch
+        run: |
+          git checkout ${{ env.DEFAULT_BRANCH }}
+          git pull origin ${{ env.DEFAULT_BRANCH }}
 
       - name: Build binary
         run: |
@@ -53,8 +73,10 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add releases/download/${{ env.VERSION }}
-          git commit -m "Add release assets for ${{ env.VERSION }}"
-          git push origin main
+          git commit -m "Add release assets for ${{ env.VERSION }}" || echo "No changes to commit"
+          git push origin ${{ env.DEFAULT_BRANCH }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -64,4 +86,4 @@ jobs:
           draft: false
           prerelease: false
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
