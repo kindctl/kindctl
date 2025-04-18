@@ -81,52 +81,8 @@ jobs:
         working-directory: kindctl
         shell: bash
 
-      - name: Verify installer works
-        run: |
-          echo "🔍 Verifying binary functionality..."
-          
-          case "${{ matrix.os }}" in
-            windows-latest)
-              if [ "${{ matrix.arch }}" == "arm64" ]; then
-                BINARY="kindctl-windows-arm64.exe"
-              else
-                BINARY="kindctl-windows-amd64.exe"
-              GOOS="windows"
-              fi
-              ;;
-            macos-latest)
-              if [ "${{ matrix.arch }}" == "arm64" ]; then
-                BINARY="kindctl-darwin-arm64"
-              else
-                BINARY="kindctl-darwin-amd64"
-              fi
-              GOOS="darwin"
-              ;;
-            ubuntu-latest)
-              if [ "${{ matrix.arch }}" == "arm64" ]; then
-                BINARY="kindctl-linux-arm64"
-              else
-                BINARY="kindctl-linux-amd64"
-              fi
-              GOOS="linux"
-              ;;
-          esac
-          
-          if [[ "$(uname -m)" != "aarch64" && "$BINARY" == *"linux-arm64"* ]]; then
-            echo "⚠️ Skipping execution of $BINARY on amd64 runner"
-          else
-            echo "▶ Running ./bin/$BINARY --version"
-            ./bin/$BINARY --version || (echo "❌ $BINARY --version failed" && exit 1)
-        
-            echo "▶ Running ./bin/$BINARY --help"
-            ./bin/$BINARY --help || (echo "❌ $BINARY --help failed" && exit 1)
-        
-            echo "✅ $BINARY passed verification."
-          fi
-        working-directory: kindctl
-        shell: bash
-
       - name: 🏗 Setup QEMU for multi-arch Docker
+        if: runner.os == 'Linux'
         uses: docker/setup-qemu-action@v3
 
       - name: Verify ARM64 and AMD64 binary using Docker (QEMU)
