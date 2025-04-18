@@ -12,7 +12,7 @@ elif [ "$ARCH" = "arm64" ]; then
 fi
 
 BINARY="kindctl-${OS}-${ARCH}"
-URL="https://github.com/<your-username>/kindctl/releases/download/${VERSION}/${BINARY}"
+URL="https://github.com/kindctl/kindctl/releases/download/${VERSION}/${BINARY}"
 
 echo "Installing kindctl ${VERSION} for ${OS}/${ARCH}..."
 

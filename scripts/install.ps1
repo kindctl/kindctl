@@ -1,7 +1,7 @@
 $Version = "v0.1.0"
 $Arch = if ($env:PROCESSOR_ARCHITECTURE -eq "AMD64") { "amd64" } else { "arm64" }
 $Binary = "kindctl-windows-$Arch.exe"
-$Url = "https://github.com/<your-username>/kindctl/releases/download/$Version/$Binary"
+$Url = "https://github.com/kindctl/kindctl/releases/download/$Version/$Binary"
 $InstallPath = "$env:ProgramFiles\kindctl"
 
 Write-Host "Installing kindctl $Version for Windows/$Arch..."
