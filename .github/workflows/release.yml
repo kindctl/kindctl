@@ -144,7 +144,7 @@ jobs:
           fi
           
           # Case for Linux platform testing
-          if [[ "${{ matrix.os }}" == "linux" ]]; then
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
             if [[ "${{ matrix.arch }}" == "arm64" ]]; then
               echo "Running ARM64 binary on Linux"
               docker run --rm --platform linux/arm64/v8 -v $PWD:/workspace -w /workspace ubuntu:latest \
