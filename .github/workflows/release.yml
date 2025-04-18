@@ -29,6 +29,7 @@ jobs:
 
       - name: Build binary
         run: |
+          set -ex
           case "${{ matrix.os }}" in
             windows-latest)
               BINARY="kindctl-windows-${{ matrix.arch }}.exe"
@@ -44,9 +45,17 @@ jobs:
               ;;
           esac
           mkdir -p bin
-          GOARCH=${{ matrix.arch }} go build -o bin/$BINARY ./cmd/kindctl
+          GOOS=$GOOS GOARCH=${{ matrix.arch }} go build -o bin/$BINARY ./cmd/kindctl
         env:
           CGO_ENABLED: 0
+        working-directory: kindctl
+        shell: bash
+
+      - name: Debug project files
+        run: |
+          ls -la
+          ls -la cmd/kindctl
+          cat cmd/kindctl/main.go
         working-directory: kindctl
         shell: bash
 
@@ -54,12 +63,14 @@ jobs:
         run: |
           mkdir -p releases/download/v0.0.0
           mv bin/* releases/download/v0.0.0/
+        working-directory: kindctl
         shell: bash
 
       - name: Copy install scripts
         run: |
           cp scripts/install.sh releases/download/v0.0.0/
           cp scripts/install.ps1 releases/download/v0.0.0/
+        working-directory: kindctl
         shell: bash
 
       - name: Commit release assets
@@ -72,13 +83,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         shell: bash
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            releases/download/v0.0.0/*
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
