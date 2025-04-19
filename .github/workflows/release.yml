@@ -71,8 +71,6 @@ jobs:
       matrix:
         os: [ ubuntu-latest, macos-latest, windows-latest ]
         arch: [ amd64, arm64 ]
-    outputs:
-      new_tag: ${{ steps.next_version.outputs.new_tag }}
 
     steps:
       - name: Checkout code
@@ -230,7 +228,7 @@ jobs:
         working-directory: kindctl
         shell: bash
         run: |
-          TAG="${{ needs.build.outputs.new_tag }}"
+          TAG="${{ needs.release_tag.outputs.new_tag }}"
           echo "🔖 Tagging commit with $TAG"
           git tag "$TAG"
           git push origin "$TAG"
