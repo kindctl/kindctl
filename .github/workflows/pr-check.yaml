@@ -32,6 +32,8 @@ jobs:
 
       - name: Determine next version from PR labels
         id: next_version
+        working-directory: kindctl
+        shell: bash
         run: |
           echo "Base version: ${{ steps.get_tag.outputs.latest_tag }}"
           version=${{ steps.get_tag.outputs.latest_tag }}
