@@ -206,7 +206,7 @@ jobs:
   relase:
     name: 🏷️ Create Git Tag & Finalize Release
     runs-on: ubuntu-latest
-    needs: build_test
+    needs: [build_test, release_tag]
     if: github.event.pull_request.merged == true
 
     steps:
