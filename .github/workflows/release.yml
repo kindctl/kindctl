@@ -83,47 +83,45 @@ jobs:
         if: runner.os == 'Linux'
         uses: docker/setup-qemu-action@v3
 
-
-      - name: ✅ Verify Linux binaries using Docker (QEMU)
-        if: runner.os == 'Linux'
-        run: |
-          echo "🔍 Verifying Linux binaries for ${{ matrix.arch }}"
-
-          if [[ "${{ matrix.arch }}" == "arm64" ]]; then
-            echo "▶ Running kindctl-linux-arm64 inside ARM64 Docker container..."
-            docker run --rm --platform linux/arm64 -v $PWD:/workspace -w /workspace ubuntu:22.04 \
-              bash -c "./bin/kindctl-linux-arm64 --version && ./bin/kindctl-linux-arm64 --help"
-          else
-            echo "▶ Running kindctl-linux-amd64 inside AMD64 Docker container..."
-            docker run --rm --platform linux/amd64 -v $PWD:/workspace -w /workspace ubuntu:latest \
-              bash -c "./bin/kindctl-linux-amd64 --version && ./bin/kindctl-linux-amd64 --help"
-          fi
-        shell: bash
-        working-directory: kindctl
-
-
-      - name: ✅ Verify MacOs binaries
-        if: runner.os == 'macOS'
-        run: |
-          echo "🔍 Verifying macOS binary for ${{ matrix.arch }}..."
-          chmod +x ./bin/kindctl-darwin-${{ matrix.arch }}
-          ./bin/kindctl-darwin-${{ matrix.arch }} --version
-          ./bin/kindctl-darwin-${{ matrix.arch }} --help
-        working-directory: kindctl
-        shell: bash
-
-      - name: ✅ Verify Windows binaries
-        if: runner.os == 'Windows'
-        run: |
-          Write-Host "Verifying Windows binary for ${{ matrix.arch }}..."
-          if ("${{ matrix.arch }}" -eq "amd64") {
-              .\bin\kindctl-windows-amd64.exe --version
-              .\bin\kindctl-windows-amd64.exe --help
-          } else {
-            Write-Host "Skipping ARM64 binary verification for Windows since it is not natively supported."
-          }
-        working-directory: kindctl
-        shell: pwsh
+#      - name: ✅ Verify Linux binaries using Docker (QEMU)
+#        if: runner.os == 'Linux'
+#        run: |
+#          echo "🔍 Verifying Linux binaries for ${{ matrix.arch }}"
+#          if [[ "${{ matrix.arch }}" == "arm64" ]]; then
+#            echo "▶ Running kindctl-linux-arm64 inside ARM64 Docker container..."
+#            docker run --rm --platform linux/arm64 -v $PWD:/workspace -w /workspace ubuntu:22.04 \
+#              bash -c "./bin/kindctl-linux-arm64 --version && ./bin/kindctl-linux-arm64 --help"
+#          else
+#            echo "▶ Running kindctl-linux-amd64 inside AMD64 Docker container..."
+#            docker run --rm --platform linux/amd64 -v $PWD:/workspace -w /workspace ubuntu:latest \
+#              bash -c "./bin/kindctl-linux-amd64 --version && ./bin/kindctl-linux-amd64 --help"
+#          fi
+#        shell: bash
+#        working-directory: kindctl
+#
+#
+#      - name: ✅ Verify MacOs binaries
+#        if: runner.os == 'macOS'
+#        run: |
+#          echo "🔍 Verifying macOS binary for ${{ matrix.arch }}..."
+#          chmod +x ./bin/kindctl-darwin-${{ matrix.arch }}
+#          ./bin/kindctl-darwin-${{ matrix.arch }} --version
+#          ./bin/kindctl-darwin-${{ matrix.arch }} --help
+#        working-directory: kindctl
+#        shell: bash
+#
+#      - name: ✅ Verify Windows binaries
+#        if: runner.os == 'Windows'
+#        run: |
+#          Write-Host "Verifying Windows binary for ${{ matrix.arch }}..."
+#          if ("${{ matrix.arch }}" -eq "amd64") {
+#              .\bin\kindctl-windows-amd64.exe --version
+#              .\bin\kindctl-windows-amd64.exe --help
+#          } else {
+#            Write-Host "Skipping ARM64 binary verification for Windows since it is not natively supported."
+#          }
+#        working-directory: kindctl
+#        shell: pwsh
 
       - name: Create release directory
         run: |
@@ -139,35 +137,35 @@ jobs:
         working-directory: kindctl
         shell: bash
 
-#      - name: Commit release assets
-#        run: |
-#          git config user.name "GitHub Actions"
-#          git config user.email "actions@github.com"
-#
-#          # Ensure we pull the latest changes from main
-#          git fetch origin
-#          git checkout main
-#          git pull origin main
-#
-#          # Create a new release branch based on the main branch
-#          RELEASE_BRANCH="release/${{ env.VERSION }}"
-#          git checkout -b "$RELEASE_BRANCH"
-#
-#          # Add and commit release assets
-#          git add releases/download/${{ env.VERSION }}
-#          git commit -m "Add release assets for ${{ env.VERSION }}" || echo "No changes to commit"
-#
-#          # Push the release branch to GitHub
-#          git push origin "$RELEASE_BRANCH"
-#
-#          # Create a pull request to the main branch
-#          PR_URL=$(curl -s -X POST \
-#            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-#            -d '{"title":"Release ${{ env.VERSION }}","head":"'"$RELEASE_BRANCH"'","base":"main"}' \
-#            https://api.github.com/repos/kindctl/kindctl/pulls | jq -r .url)
-#
-#          echo "PR created: $PR_URL"
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#        working-directory: kindctl
-#        shell: bash
+      - name: Commit release assets
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+          # Ensure we pull the latest changes from main
+          git fetch origin
+          git checkout main
+          git pull origin main
+
+          # Create a new release branch based on the main branch
+          RELEASE_BRANCH="release/${{ env.VERSION }}"
+          git checkout -b "$RELEASE_BRANCH"
+
+          # Add and commit release assets
+          git add releases/download/${{ env.VERSION }}
+          git commit -m "Add release assets for ${{ env.VERSION }}" || echo "No changes to commit"
+
+          # Push the release branch to GitHub
+          git push --set-upstream origin "$RELEASE_BRANCH"
+
+          # Create a pull request to the main branch
+          PR_URL=$(curl -s -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -d '{"title":"Release ${{ env.VERSION }}","head":"'"$RELEASE_BRANCH"'","base":"main"}' \
+            https://api.github.com/repos/kindctl/kindctl/pulls | jq -r .url)
+
+          echo "PR created: $PR_URL"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        working-directory: kindctl
+        shell: bash
