@@ -21,16 +21,21 @@ jobs:
           token: ${{ secrets.PAT_TOKEN }}
           path: kindctl
 
+      - name: Download next tag
+        uses: actions/download-artifact@v4
+        with:
+          name: next-tag
+
+      - name: Read next version
+        id: read_tag
+        run: |
+          version=$(cat .next-tag)
+          echo "tag=$version" >> $GITHUB_OUTPUT
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.21'
-
-      - name: Get tag version
-        id: tag
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-        working-directory: kindctl
-        shell: bash
 
       - name: Install zip on Windows
         if: matrix.os == 'windows-latest'
@@ -137,52 +142,11 @@ jobs:
         working-directory: kindctl
         shell: bash
 
-      - name: Get latest tag
-        id: get_tag
-        working-directory: kindctl
-        shell: bash
-        run: |
-          git fetch --tags
-          latest_tag=$(git describe --tags --abbrev=0 || echo "v0.0.0")
-          echo "latest_tag=$latest_tag" >> $GITHUB_OUTPUT
-
-      - name: Determine next version from PR labels
-        id: next_version
-        working-directory: kindctl
-        shell: bash
-        run: |
-          echo "Base version: ${{ steps.get_tag.outputs.latest_tag }}"
-          version=${{ steps.get_tag.outputs.latest_tag }}
-          version="${version#v}"
-          major=$(echo $version | cut -d. -f1)
-          minor=$(echo $version | cut -d. -f2)
-          patch=$(echo $version | cut -d. -f3)
-          
-          labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels -q ".labels[].name")
-          echo "Labels: $labels"
-          
-          if echo "$labels" | grep -q 'release:major'; then
-            major=$((major+1)); minor=0; patch=0
-          elif echo "$labels" | grep -q 'release:minor'; then
-            minor=$((minor+1)); patch=0
-          elif echo "$labels" | grep -q 'release:patch'; then
-            patch=$((patch+1))
-          else
-            echo "❌ No valid release label found (release:major/minor/patch)"
-            exit 1
-          fi
-          
-          new_tag="v$major.$minor.$patch"
-          echo "✅ New version: $new_tag"
-          echo "tag=$new_tag" >> $GITHUB_OUTPUT
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Create new tag and push
         working-directory: kindctl
         shell: bash
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git tag ${{ steps.next_version.outputs.tag }}
-          git push origin ${{ steps.next_version.outputs.tag }}
+          git tag ${{ steps.read_tag.outputs.tag }}
+          git push origin ${{ steps.read_tag.outputs.tag }}
