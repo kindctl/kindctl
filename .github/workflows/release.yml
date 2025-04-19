@@ -123,7 +123,7 @@ jobs:
             Write-Host "Skipping ARM64 binary verification for Windows since it is not natively supported."
           }
         working-directory: kindctl
-        shell: powershell
+        shell: pwsh
 
       - name: Create release directory
         run: |
