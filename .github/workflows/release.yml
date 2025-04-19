@@ -29,6 +29,7 @@ jobs:
 
       - name: Fetch tags and determine latest version
         id: get_version
+        working-directory: kindctl
         run: |
           git fetch --tags
           latest_tag=$(git describe --tags --abbrev=0 || echo "v0.0.0")
