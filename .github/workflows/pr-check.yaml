@@ -3,6 +3,7 @@ name: PR Check – Build and Test Installers
 on:
   pull_request:
     branches: [ main ]
+    types: [opened, labeled, unlabeled, synchronize]
 
 jobs:
   build-and-test:
