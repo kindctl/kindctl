@@ -188,6 +188,8 @@ jobs:
         shell: bash
 
       - name: Tag and push
+        working-directory: kindctl
+        shell: bash
         run: |
           git tag ${{ steps.next_version.outputs.new_tag }}
           git push origin ${{ steps.next_version.outputs.new_tag }}
