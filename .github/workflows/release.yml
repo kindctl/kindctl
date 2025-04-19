@@ -137,7 +137,7 @@ jobs:
         working-directory: kindctl
         shell: bash
 
-      - name: Get latest tag and push
+      - name: Get latest tag
         id: get_tag
         working-directory: kindctl
         shell: bash
