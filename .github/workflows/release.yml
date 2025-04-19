@@ -116,7 +116,7 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           Write-Host "Verifying Windows binary for ${{ matrix.arch }}..."
-          if (${{ matrix.arch }} -eq 'amd64') {
+          if ("${{ matrix.arch }}" -eq "amd64") {
               .\bin\kindctl-windows-amd64.exe --version
               .\bin\kindctl-windows-amd64.exe --help
           } else {
