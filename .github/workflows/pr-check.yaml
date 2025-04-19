@@ -58,6 +58,7 @@ jobs:
 
           new_tag="v$major.$minor.$patch"
           echo "✅ New version: $new_tag"
+          echo "$new_tag" > .next-tag
           echo "tag=$new_tag" >> $GITHUB_OUTPUT
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
