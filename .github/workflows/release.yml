@@ -23,6 +23,7 @@ jobs:
 
       - name: Configure Git
         working-directory: kindctl
+        shell: bash
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
@@ -30,6 +31,7 @@ jobs:
       - name: Fetch tags and determine latest version
         id: get_version
         working-directory: kindctl
+        shell: bash
         run: |
           git fetch --tags
           latest_tag=$(git describe --tags --abbrev=0 || echo "v0.0.0")
@@ -38,6 +40,7 @@ jobs:
 
       - name: Determine next version from PR labels
         id: next_version
+        shell: bash
         working-directory: kindctl
         run: |
           version="${{ env.latest_tag }}"
