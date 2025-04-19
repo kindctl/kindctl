@@ -3,14 +3,13 @@ package logger
 import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"os"
 )
 
-// Logger wraps a zap logger.
 type Logger struct {
 	*zap.SugaredLogger
 }
 
-// NewLogger creates a new logger with the specified level.
 func NewLogger(level string) *Logger {
 	var lvl zapcore.Level
 	switch level {
@@ -26,11 +25,23 @@ func NewLogger(level string) *Logger {
 		lvl = zapcore.InfoLevel
 	}
 
-	config := zap.NewProductionConfig()
-	config.Level = zap.NewAtomicLevelAt(lvl)
-	config.OutputPaths = []string{"stdout"}
-	config.ErrorOutputPaths = []string{"stderr"}
+	encoderConfig := zapcore.EncoderConfig{
+		MessageKey:     "msg",
+		LevelKey:       "level",
+		NameKey:        "logger",
+		EncodeLevel:    zapcore.CapitalLevelEncoder,
+		EncodeTime:     zapcore.ISO8601TimeEncoder,
+		EncodeDuration: zapcore.StringDurationEncoder,
+	}
+	encoder := zapcore.NewConsoleEncoder(encoderConfig)
 
-	logger, _ := config.Build()
+	core := zapcore.NewCore(
+		encoder,
+		zapcore.Lock(os.Stdout),
+		lvl,
+	)
+
+	// Build logger
+	logger := zap.New(core, zap.AddCallerSkip(1))
 	return &Logger{logger.Sugar()}
 }
