@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"kindctl/internal/config"
 	"kindctl/internal/logger"
@@ -57,8 +58,6 @@ func installHomebrew(log *logger.Logger) error {
 func installWinget(log *logger.Logger) error {
 	if !commandExists("winget") {
 		log.Info("Installing winget...")
-		// Note: Installing winget via Go is complex due to msixbundle installation.
-		// For simplicity, we inform the user to install it manually or use an alternative.
 		log.Info("Please install winget manually from https://github.com/microsoft/winget-cli or Microsoft Store.")
 		return fmt.Errorf("winget not found; manual installation required")
 	}
@@ -74,7 +73,6 @@ func installBinary(log *logger.Logger, name, url, destDir string) error {
 	}
 
 	log.Info("Installing ", name, "...")
-	// Download the binary
 	cmd := exec.Command("curl", "-Lo", name, url)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -82,15 +80,12 @@ func installBinary(log *logger.Logger, name, url, destDir string) error {
 		return fmt.Errorf("failed to download %s: %w", name, err)
 	}
 
-	// Make executable
 	if err := os.Chmod(name, 0755); err != nil {
 		return fmt.Errorf("failed to set permissions for %s: %w", name, err)
 	}
 
-	// Move to destination
 	destPath := filepath.Join(destDir, name)
 	if err := os.Rename(name, destPath); err != nil {
-		// On some systems, direct rename across filesystems fails; try copy
 		data, err := os.ReadFile(name)
 		if err != nil {
 			return fmt.Errorf("failed to read %s: %w", name, err)
@@ -126,7 +121,6 @@ func installKind(log *logger.Logger) error {
 		return nil
 	}
 
-	// Fallback to direct download
 	url := ""
 	switch osType {
 	case "linux":
@@ -168,7 +162,6 @@ func installKubectl(log *logger.Logger) error {
 		return nil
 	}
 
-	// Fallback to direct download
 	stableVersion, err := exec.Command("curl", "-L", "-s", "https://dl.k8s.io/release/stable.txt").Output()
 	if err != nil {
 		return fmt.Errorf("failed to get kubectl stable version: %w", err)
@@ -219,7 +212,6 @@ func installHelm(log *logger.Logger) error {
 		return nil
 	}
 
-	// Helm installation via script for Linux/macOS or direct download for Windows
 	if osType != "windows" {
 		if !commandExists("helm") {
 			log.Info("Installing helm...")
@@ -247,11 +239,9 @@ func installHelm(log *logger.Logger) error {
 		return nil
 	}
 
-	// Windows: Direct download
 	url := "https://get.helm.sh/helm-v3.15.4-windows-amd64.zip"
 	if !commandExists("helm") {
 		log.Info("Installing helm...")
-		// Download and extract zip (simplified; assumes unzip is available or manual extraction)
 		log.Info("Please download and extract helm from ", url, " and add to PATH.")
 		return fmt.Errorf("helm installation on Windows requires manual steps")
 	}
@@ -259,14 +249,22 @@ func installHelm(log *logger.Logger) error {
 	return nil
 }
 
-// generateKindConfig creates a Kind configuration file with one control-plane and specified worker nodes.
+// generateKindConfig creates a Kind configuration file matching the provided YAML structure.
 func generateKindConfig(configFile string, clusterName string, workerNodes int) (string, error) {
 	configDir := filepath.Dir(configFile)
 	kindConfigPath := filepath.Join(configDir, "kind-config.yaml")
 
-	// Generate Kind configuration content
+	if workerNodes < 1 {
+		workerNodes = 1
+	}
+
 	var nodes []string
-	nodes = append(nodes, "  - role: control-plane")
+	nodes = append(nodes, `  - role: control-plane
+    extraPortMappings:
+      - containerPort: 80
+        hostPort: 80
+      - containerPort: 443
+        hostPort: 443`)
 	for i := 0; i < workerNodes; i++ {
 		nodes = append(nodes, "  - role: worker")
 	}
@@ -278,7 +276,6 @@ nodes:
 %s
 `, clusterName, strings.Join(nodes, "\n"))
 
-	// Write configuration to file
 	if err := os.WriteFile(kindConfigPath, []byte(kindConfigContent), 0644); err != nil {
 		return "", fmt.Errorf("failed to write Kind config file: %w", err)
 	}
@@ -286,9 +283,41 @@ nodes:
 	return kindConfigPath, nil
 }
 
+// waitForNodesReady waits for all nodes to be in Ready state.
+func waitForNodesReady(log *logger.Logger, timeout time.Duration) error {
+	log.Info("Waiting for nodes to be ready...")
+	start := time.Now()
+	for {
+		cmd := exec.Command("kubectl", "get", "nodes", "-o", "jsonpath={.items[*].status.conditions[?(@.type=='Ready')].status}")
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("failed to check node status: %w", err)
+		}
+
+		statuses := strings.Split(strings.TrimSpace(string(output)), " ")
+		allReady := true
+		for _, status := range statuses {
+			if status != "True" {
+				allReady = false
+				break
+			}
+		}
+
+		if allReady {
+			log.Info("All nodes are ready.")
+			return nil
+		}
+
+		if time.Since(start) > timeout {
+			return fmt.Errorf("timeout waiting for nodes to be ready")
+		}
+
+		time.Sleep(5 * time.Second)
+	}
+}
+
 // Initialize sets up a new Kind cluster and installs dependencies.
 func Initialize(log *logger.Logger, configFile string) error {
-	// Step 1: Check and create config file
 	if _, err := os.Stat(configFile); err == nil {
 		log.Info("kindctl.yaml file already exists.")
 	} else if os.IsNotExist(err) {
@@ -301,12 +330,10 @@ func Initialize(log *logger.Logger, configFile string) error {
 		return err
 	}
 
-	// Step 2: Check Docker
 	if err := checkDocker(log); err != nil {
 		return err
 	}
 
-	// Step 3: Install OS-specific package managers
 	osType := runtime.GOOS
 	switch osType {
 	case "darwin":
@@ -315,12 +342,10 @@ func Initialize(log *logger.Logger, configFile string) error {
 		}
 	case "windows":
 		if err := installWinget(log); err != nil {
-			// Allow continuation if winget installation is manual
 			log.Warn("Continuing despite winget installation issue.")
 		}
 	}
 
-	// Step 4: Install Kind, kubectl, and Helm
 	if err := installKind(log); err != nil {
 		return err
 	}
@@ -331,7 +356,6 @@ func Initialize(log *logger.Logger, configFile string) error {
 		return err
 	}
 
-	// Step 5: Verify installations
 	log.Info("Verifying installations...")
 	for _, cmd := range []string{"kind", "kubectl", "helm"} {
 		if commandExists(cmd) {
@@ -346,7 +370,6 @@ func Initialize(log *logger.Logger, configFile string) error {
 		}
 	}
 
-	// Step 6: Create Kind cluster
 	cfg, err := config.LoadConfig(configFile)
 	if err != nil {
 		return err
@@ -365,7 +388,6 @@ func Initialize(log *logger.Logger, configFile string) error {
 		}
 	}
 
-	// Generate Kind configuration file
 	kindConfigPath, err := generateKindConfig(configFile, cfg.Cluster.Name, cfg.Cluster.WorkerNodes)
 	if err != nil {
 		return err
@@ -385,9 +407,64 @@ func Initialize(log *logger.Logger, configFile string) error {
 	}
 	log.Info("✅ Created Kind cluster: ", cfg.Cluster.Name)
 
+	// Wait for nodes to be ready
+	if err := waitForNodesReady(log, 2*time.Minute); err != nil {
+		return err
+	}
+
+	// Label worker node for NGINX ingress
+	log.Info("Labeling worker node for NGINX ingress...")
+	cmd = exec.Command("kubectl", "label", "nodes", fmt.Sprintf("%s-worker", cfg.Cluster.Name), "ingress-ready=true")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to label worker node: %w", err)
+	}
+	log.Info("✅ Worker node labeled with ingress-ready=true")
+
 	fmt.Println()
 	log.Info("🏗 Installing NGINX ingress controller...")
-	cmd = exec.Command("kubectl", "apply", "-f", "https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml")
+	// Use a modified manifest with toleration for not-ready nodes
+	nginxManifestURL := "https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml"
+	// Download and patch the manifest
+	cmd = exec.Command("curl", "-s", nginxManifestURL)
+	nginxManifest, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to download NGINX ingress manifest: %w", err)
+	}
+
+	// Add toleration to the deployment
+	tolerationPatch := `
+spec:
+  template:
+    spec:
+      tolerations:
+      - key: "node.kubernetes.io/not-ready"
+        operator: "Exists"
+        effect: "NoSchedule"
+`
+	nginxManifestStr := string(nginxManifest)
+	// Insert toleration after nodeSelector
+	nodeSelectorLine := "nodeSelector:\n          ingress-ready: \"true\""
+	if strings.Contains(nginxManifestStr, nodeSelectorLine) {
+		nginxManifestStr = strings.Replace(nginxManifestStr, nodeSelectorLine, nodeSelectorLine+"\n        "+tolerationPatch, 1)
+	} else {
+		log.Warn("nodeSelector not found in NGINX manifest; applying without toleration patch")
+	}
+
+	// Save patched manifest to a temporary file
+	tempManifestPath := filepath.Join(filepath.Dir(configFile), "nginx-ingress-patched.yaml")
+	if err := os.WriteFile(tempManifestPath, []byte(nginxManifestStr), 0644); err != nil {
+		return fmt.Errorf("failed to write patched NGINX manifest: %w", err)
+	}
+	defer func() {
+		if err := os.Remove(tempManifestPath); err != nil {
+			log.Warn("Failed to clean up patched NGINX manifest: ", tempManifestPath)
+		}
+	}()
+
+	// Apply the patched manifest
+	cmd = exec.Command("kubectl", "apply", "-f", tempManifestPath)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
