@@ -1,17 +1,16 @@
-name: Build and Release
+name: PR Check – Build and Test Installers
 
 on:
-  push:
-    branches:
-      - main
+  pull_request:
+    branches: [ main ]
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-latest, windows-latest ]
-        arch: [ amd64, arm64 ]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        arch: [amd64, arm64]
 
     steps:
       - name: Checkout code
@@ -40,7 +39,7 @@ jobs:
       - name: Build and package binary
         run: |
           set -e
-          
+
           case "${{ matrix.os }}" in
             windows-latest)
               EXT=".exe"
@@ -55,14 +54,14 @@ jobs:
               OS_NAME="linux"
               ;;
           esac
-          
+
           BINARY="kindctl-${OS_NAME}-${{ matrix.arch }}${EXT}"
           ARCHIVE="${BINARY%.*}"
-          
+
           echo "🛠 Building $BINARY..."
           mkdir -p bin
           GOARCH=${{ matrix.arch }} GOOS=$OS_NAME CGO_ENABLED=0 go build -ldflags "-X main.version=${{ env.VERSION }}" -o bin/$BINARY ./cmd/kindctl
-          
+
           echo "📦 Packaging $ARCHIVE..."
           cd bin
           if [[ "$EXT" == ".exe" ]]; then
@@ -71,7 +70,7 @@ jobs:
             tar -czvf "${ARCHIVE}.tar.gz" "$BINARY"
           fi
           cd ..
-          
+
           echo "📁 Moving archive to release directory..."
           mkdir -p releases/download/${{ env.VERSION }}
           mv bin/*.zip bin/*.tar.gz releases/download/${{ env.VERSION }}/ || true
@@ -122,63 +121,3 @@ jobs:
           }
         working-directory: kindctl
         shell: pwsh
-
-      - name: Create release directory
-        run: |
-          mkdir -p releases/download/${{ env.VERSION }}
-          mv bin/* releases/download/${{ env.VERSION }}/
-        working-directory: kindctl
-        shell: bash
-
-      - name: Copy install scripts
-        run: |
-          cp scripts/install.sh releases/download/${{ env.VERSION }}/
-          cp scripts/install.ps1 releases/download/${{ env.VERSION }}/
-        working-directory: kindctl
-        shell: bash
-
-      - name: Get latest tag
-        id: get_tag
-        working-directory: kindctl
-        shell: bash
-        run: |
-          git fetch --tags
-          latest_tag=$(git describe --tags --abbrev=0 || echo "v0.0.0")
-          echo "latest_tag=$latest_tag" >> $GITHUB_OUTPUT
-
-          - name: Determine next version from PR labels
-            id: next_version
-            run: |
-              echo "Base version: ${{ steps.get_tag.outputs.latest_tag }}"
-              version=${{ steps.get_tag.outputs.latest_tag }}
-              version="${version#v}"
-              major=$(echo $version | cut -d. -f1)
-              minor=$(echo $version | cut -d. -f2)
-              patch=$(echo $version | cut -d. -f3)
-              
-              labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels -q ".labels[].name")
-              echo "Labels: $labels"
-              
-              if echo "$labels" | grep -q 'release:major'; then
-                major=$((major+1)); minor=0; patch=0
-              elif echo "$labels" | grep -q 'release:minor'; then
-                minor=$((minor+1)); patch=0
-              elif echo "$labels" | grep -q 'release:patch'; then
-                patch=$((patch+1))
-              else
-                echo "❌ No valid release label found (release:major/minor/patch)"
-                exit 1
-              fi
-              
-              new_tag="v$major.$minor.$patch"
-              echo "✅ New version: $new_tag"
-              echo "tag=$new_tag" >> $GITHUB_OUTPUT
-            env:
-              GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-          - name: Create new tag and push
-            run: |
-              git config user.name "github-actions"
-              git config user.email "actions@github.com"
-              git tag ${{ steps.next_version.outputs.tag }}
-              git push origin ${{ steps.next_version.outputs.tag }}
