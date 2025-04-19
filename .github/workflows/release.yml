@@ -37,6 +37,7 @@ jobs:
 
       - name: Determine next version from PR labels
         id: next_version
+        working-directory: kindctl
         run: |
           version="${{ env.latest_tag }}"
           version="${version#v}"  # strip 'v'
