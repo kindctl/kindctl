@@ -22,6 +22,7 @@ jobs:
           path: kindctl
 
       - name: Configure Git
+        working-directory: kindctl
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
@@ -112,8 +113,11 @@ jobs:
           
           echo "📁 Moving archive to release directory..."
           mkdir -p releases/download/${{ env.VERSION }}
-          mv bin/*.zip bin/*.tar.gz releases/download/${{ env.VERSION }}/ || true
+          mkdir -p releases/download/latest
+          cp bin/*.zip bin/*.tar.gz releases/download/${{ env.VERSION }}/ || true
+          mv bin/*.zip bin/*.tar.gz releases/download/latest/ || true
           ls -la releases/download/${{ env.VERSION }}/
+          ls -la releases/download/latest/
         working-directory: kindctl
         shell: bash
 
@@ -164,6 +168,7 @@ jobs:
       - name: Create release directory
         run: |
           mkdir -p releases/download/${{ env.VERSION }}
+          cp bin/* releases/download/latest/
           mv bin/* releases/download/${{ env.VERSION }}/
         working-directory: kindctl
         shell: bash
@@ -172,6 +177,8 @@ jobs:
         run: |
           cp scripts/install.sh releases/download/${{ env.VERSION }}/
           cp scripts/install.ps1 releases/download/${{ env.VERSION }}/
+          cp scripts/install.sh releases/download/latest/
+          cp scripts/install.ps1 releases/download/latest/
         working-directory: kindctl
         shell: bash
 
