@@ -2,16 +2,16 @@ name: Build and Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
 
 jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-        arch: [amd64]
+        os: [ ubuntu-latest, macos-latest, windows-latest ]
+        arch: [ amd64, arm64 ]
 
     steps:
       - name: Checkout code
@@ -32,29 +32,96 @@ jobs:
         working-directory: kindctl
         shell: bash
 
-      - name: Build binary
+      - name: Install zip on Windows
+        if: matrix.os == 'windows-latest'
+        run: choco install zip
+        shell: powershell
+
+      - name: Build and package binary
         run: |
-          set -ex
+          set -e
+          
           case "${{ matrix.os }}" in
             windows-latest)
-              BINARY="kindctl-windows-${{ matrix.arch }}.exe"
-              GOOS="windows"
+              EXT=".exe"
+              OS_NAME="windows"
               ;;
             macos-latest)
-              BINARY="kindctl-darwin-${{ matrix.arch }}"
-              GOOS="darwin"
+              EXT=""
+              OS_NAME="darwin"
               ;;
             ubuntu-latest)
-              BINARY="kindctl-linux-${{ matrix.arch }}"
-              GOOS="linux"
+              EXT=""
+              OS_NAME="linux"
               ;;
           esac
+          
+          BINARY="kindctl-${OS_NAME}-${{ matrix.arch }}${EXT}"
+          ARCHIVE="${BINARY%.*}"
+          
+          echo "🛠 Building $BINARY..."
           mkdir -p bin
-          GOOS=$GOOS GOARCH=${{ matrix.arch }} go build -o bin/$BINARY ./cmd/kindctl
-        env:
-          CGO_ENABLED: 0
+          GOARCH=${{ matrix.arch }} GOOS=$OS_NAME CGO_ENABLED=0 go build -ldflags "-X main.version=${{ env.VERSION }}" -o bin/$BINARY ./cmd/kindctl
+          
+          echo "📦 Packaging $ARCHIVE..."
+          cd bin
+          if [[ "$EXT" == ".exe" ]]; then
+            zip "${ARCHIVE}.zip" "$BINARY"
+          else
+            tar -czvf "${ARCHIVE}.tar.gz" "$BINARY"
+          fi
+          cd ..
+          
+          echo "📁 Moving archive to release directory..."
+          mkdir -p releases/download/${{ env.VERSION }}
+          mv bin/*.zip bin/*.tar.gz releases/download/${{ env.VERSION }}/ || true
+          ls -la releases/download/${{ env.VERSION }}/
         working-directory: kindctl
         shell: bash
+
+      - name: 🏗 Setup QEMU for multi-arch Docker
+        if: runner.os == 'Linux'
+        uses: docker/setup-qemu-action@v3
+
+      - name: ✅ Verify Linux binaries using Docker (QEMU)
+        if: runner.os == 'Linux'
+        run: |
+          echo "🔍 Verifying Linux binaries for ${{ matrix.arch }}"
+          if [[ "${{ matrix.arch }}" == "arm64" ]]; then
+            echo "▶ Running kindctl-linux-arm64 inside ARM64 Docker container..."
+            docker run --rm --platform linux/arm64 -v $PWD:/workspace -w /workspace ubuntu:22.04 \
+              bash -c "./bin/kindctl-linux-arm64 --version && ./bin/kindctl-linux-arm64 --help"
+          else
+            echo "▶ Running kindctl-linux-amd64 inside AMD64 Docker container..."
+            docker run --rm --platform linux/amd64 -v $PWD:/workspace -w /workspace ubuntu:latest \
+              bash -c "./bin/kindctl-linux-amd64 --version && ./bin/kindctl-linux-amd64 --help"
+          fi
+        shell: bash
+        working-directory: kindctl
+
+
+      - name: ✅ Verify MacOs binaries
+        if: runner.os == 'macOS'
+        run: |
+          echo "🔍 Verifying macOS binary for ${{ matrix.arch }}..."
+          chmod +x ./bin/kindctl-darwin-${{ matrix.arch }}
+          ./bin/kindctl-darwin-${{ matrix.arch }} --version
+          ./bin/kindctl-darwin-${{ matrix.arch }} --help
+        working-directory: kindctl
+        shell: bash
+
+      - name: ✅ Verify Windows binaries
+        if: runner.os == 'Windows'
+        run: |
+          Write-Host "Verifying Windows binary for ${{ matrix.arch }}..."
+          if ("${{ matrix.arch }}" -eq "amd64") {
+              .\bin\kindctl-windows-amd64.exe --version
+              .\bin\kindctl-windows-amd64.exe --help
+          } else {
+            Write-Host "Skipping ARM64 binary verification for Windows since it is not natively supported."
+          }
+        working-directory: kindctl
+        shell: pwsh
 
       - name: Create release directory
         run: |
@@ -70,15 +137,52 @@ jobs:
         working-directory: kindctl
         shell: bash
 
-      - name: Commit release assets
-        run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          git add releases/download/${{ env.VERSION }}
-          git commit -m "Add release assets for ${{ env.VERSION }}" || echo "No changes to commit"
-          git pull --rebase origin "$GITHUB_REF_NAME"
-          git push origin "$GITHUB_REF_NAME"
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+      - name: Get latest tag
+        id: get_tag
         working-directory: kindctl
         shell: bash
+        run: |
+          git fetch --tags
+          latest_tag=$(git describe --tags --abbrev=0 || echo "v0.0.0")
+          echo "latest_tag=$latest_tag" >> $GITHUB_OUTPUT
+
+      - name: Determine next version from PR labels
+        id: next_version
+        working-directory: kindctl
+        shell: bash
+        run: |
+          echo "Base version: ${{ steps.get_tag.outputs.latest_tag }}"
+          version=${{ steps.get_tag.outputs.latest_tag }}
+          version="${version#v}"
+          major=$(echo $version | cut -d. -f1)
+          minor=$(echo $version | cut -d. -f2)
+          patch=$(echo $version | cut -d. -f3)
+          
+          labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels -q ".labels[].name")
+          echo "Labels: $labels"
+          
+          if echo "$labels" | grep -q 'release:major'; then
+            major=$((major+1)); minor=0; patch=0
+          elif echo "$labels" | grep -q 'release:minor'; then
+            minor=$((minor+1)); patch=0
+          elif echo "$labels" | grep -q 'release:patch'; then
+            patch=$((patch+1))
+          else
+            echo "❌ No valid release label found (release:major/minor/patch)"
+            exit 1
+          fi
+          
+          new_tag="v$major.$minor.$patch"
+          echo "✅ New version: $new_tag"
+          echo "tag=$new_tag" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create new tag and push
+        working-directory: kindctl
+        shell: bash
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git tag ${{ steps.next_version.outputs.tag }}
+          git push origin ${{ steps.next_version.outputs.tag }}

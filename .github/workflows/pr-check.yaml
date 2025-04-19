@@ -1,0 +1,165 @@
+name: PR Check – Build and Test Installers
+
+on:
+  pull_request:
+    branches: [ main ]
+    types: [opened, labeled, unlabeled, synchronize]
+
+jobs:
+  build-and-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        arch: [amd64, arm64]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.PAT_TOKEN }}
+          path: kindctl
+
+      - name: Get latest tag
+        id: get_tag
+        working-directory: kindctl
+        shell: bash
+        run: |
+          git fetch --tags
+          latest_tag=$(git describe --tags --abbrev=0 || echo "v0.0.0")
+          echo "latest_tag=$latest_tag" >> $GITHUB_OUTPUT
+
+      - name: Determine next version from PR labels
+        id: next_version
+        working-directory: kindctl
+        shell: bash
+        run: |
+          echo "Base version: ${{ steps.get_tag.outputs.latest_tag }}"
+          version=${{ steps.get_tag.outputs.latest_tag }}
+          version="${version#v}"
+          major=$(echo $version | cut -d. -f1)
+          minor=$(echo $version | cut -d. -f2)
+          patch=$(echo $version | cut -d. -f3)
+
+          labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels -q ".labels[].name")
+          echo "Labels: $labels"
+
+          if echo "$labels" | grep -q 'release:major'; then
+            major=$((major+1)); minor=0; patch=0
+          elif echo "$labels" | grep -q 'release:minor'; then
+            minor=$((minor+1)); patch=0
+          elif echo "$labels" | grep -q 'release:patch'; then
+            patch=$((patch+1))
+          else
+            echo "❌ No valid release label found (release:major/minor/patch)"
+            exit 1
+          fi
+
+          new_tag="v$major.$minor.$patch"
+          echo "✅ New version: $new_tag"
+          echo "tag=$new_tag" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Get tag version
+        id: tag
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+        working-directory: kindctl
+        shell: bash
+
+      - name: Install zip on Windows
+        if: matrix.os == 'windows-latest'
+        run: choco install zip
+        shell: powershell
+
+      - name: Build and package binary
+        run: |
+          set -e
+
+          case "${{ matrix.os }}" in
+            windows-latest)
+              EXT=".exe"
+              OS_NAME="windows"
+              ;;
+            macos-latest)
+              EXT=""
+              OS_NAME="darwin"
+              ;;
+            ubuntu-latest)
+              EXT=""
+              OS_NAME="linux"
+              ;;
+          esac
+
+          BINARY="kindctl-${OS_NAME}-${{ matrix.arch }}${EXT}"
+          ARCHIVE="${BINARY%.*}"
+
+          echo "🛠 Building $BINARY..."
+          mkdir -p bin
+          GOARCH=${{ matrix.arch }} GOOS=$OS_NAME CGO_ENABLED=0 go build -ldflags "-X main.version=${{ env.VERSION }}" -o bin/$BINARY ./cmd/kindctl
+
+          echo "📦 Packaging $ARCHIVE..."
+          cd bin
+          if [[ "$EXT" == ".exe" ]]; then
+            zip "${ARCHIVE}.zip" "$BINARY"
+          else
+            tar -czvf "${ARCHIVE}.tar.gz" "$BINARY"
+          fi
+          cd ..
+
+          echo "📁 Moving archive to release directory..."
+          mkdir -p releases/download/${{ env.VERSION }}
+          mv bin/*.zip bin/*.tar.gz releases/download/${{ env.VERSION }}/ || true
+          ls -la releases/download/${{ env.VERSION }}/
+        working-directory: kindctl
+        shell: bash
+
+      - name: 🏗 Setup QEMU for multi-arch Docker
+        if: runner.os == 'Linux'
+        uses: docker/setup-qemu-action@v3
+
+      - name: ✅ Verify Linux binaries using Docker (QEMU)
+        if: runner.os == 'Linux'
+        run: |
+          echo "🔍 Verifying Linux binaries for ${{ matrix.arch }}"
+          if [[ "${{ matrix.arch }}" == "arm64" ]]; then
+            echo "▶ Running kindctl-linux-arm64 inside ARM64 Docker container..."
+            docker run --rm --platform linux/arm64 -v $PWD:/workspace -w /workspace ubuntu:22.04 \
+              bash -c "./bin/kindctl-linux-arm64 --version && ./bin/kindctl-linux-arm64 --help"
+          else
+            echo "▶ Running kindctl-linux-amd64 inside AMD64 Docker container..."
+            docker run --rm --platform linux/amd64 -v $PWD:/workspace -w /workspace ubuntu:latest \
+              bash -c "./bin/kindctl-linux-amd64 --version && ./bin/kindctl-linux-amd64 --help"
+          fi
+        shell: bash
+        working-directory: kindctl
+
+
+      - name: ✅ Verify MacOs binaries
+        if: runner.os == 'macOS'
+        run: |
+          echo "🔍 Verifying macOS binary for ${{ matrix.arch }}..."
+          chmod +x ./bin/kindctl-darwin-${{ matrix.arch }}
+          ./bin/kindctl-darwin-${{ matrix.arch }} --version
+          ./bin/kindctl-darwin-${{ matrix.arch }} --help
+        working-directory: kindctl
+        shell: bash
+
+      - name: ✅ Verify Windows binaries
+        if: runner.os == 'Windows'
+        run: |
+          Write-Host "Verifying Windows binary for ${{ matrix.arch }}..."
+          if ("${{ matrix.arch }}" -eq "amd64") {
+              .\bin\kindctl-windows-amd64.exe --version
+              .\bin\kindctl-windows-amd64.exe --help
+          } else {
+            Write-Host "Skipping ARM64 binary verification for Windows since it is not natively supported."
+          }
+        working-directory: kindctl
+        shell: pwsh

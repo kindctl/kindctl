@@ -12,18 +12,27 @@ import (
 )
 
 var (
-	configFile string
-	logLevel   string
+	configFile  string
+	logLevel    string
+	version     = "dev"
+	showVersion bool
 )
 
 func main() {
 	rootCmd := &cobra.Command{
 		Use:   "kindctl",
 		Short: "kindctl is a CLI tool to manage local Kubernetes clusters using Kind",
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			if showVersion {
+				fmt.Printf("kindctl version %s\n", version)
+				os.Exit(0)
+			}
+		},
 	}
 
 	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "kindctl.yaml", "Path to configuration file")
 	rootCmd.PersistentFlags().StringVarP(&logLevel, "log-level", "l", "info", "Log level (debug, info, warn, error)")
+	rootCmd.PersistentFlags().BoolVarP(&showVersion, "version", "v", false, "Print the version of kindctl")
 
 	initCmd := &cobra.Command{
 		Use:   "init",
@@ -60,8 +69,21 @@ func main() {
 		},
 	}
 
-	rootCmd.AddCommand(initCmd, updateCmd, destroyCmd)
+	versionCmd := &cobra.Command{
+		Use:   "version",
+		Short: "Print the version of kindctl",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Printf("kindctl version: %s\n", version)
+		},
+	}
 
+	rootCmd.AddCommand(initCmd, updateCmd, destroyCmd, versionCmd)
+	for _, arg := range os.Args[1:] {
+		if arg == "--version" || arg == "-v" {
+			fmt.Printf("kindctl version: %s\n", version)
+			os.Exit(0)
+		}
+	}
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
