@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
+	"kindctl/internal/config"
 	"os"
 
 	"github.com/spf13/cobra"
 	"kindctl/internal/cluster"
-	"kindctl/internal/config"
 	"kindctl/internal/logger"
 	"kindctl/internal/tools"
 )
