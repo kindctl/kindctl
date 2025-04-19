@@ -39,10 +39,10 @@ jobs:
           major=$(echo $version | cut -d. -f1)
           minor=$(echo $version | cut -d. -f2)
           patch=$(echo $version | cut -d. -f3)
-
+  
           labels=$(gh pr view ${{ github.event.pull_request.number }} --json labels -q ".labels[].name")
           echo "Labels: $labels"
-
+  
           if echo "$labels" | grep -q 'release:major'; then
             major=$((major+1)); minor=0; patch=0
           elif echo "$labels" | grep -q 'release:minor'; then
@@ -53,32 +53,16 @@ jobs:
             echo "❌ No valid release label found (release:major/minor/patch)"
             exit 1
           fi
-
+  
           new_tag="v$major.$minor.$patch"
           echo "✅ New version: $new_tag"
-          echo "version=$new_tag" >> $GITHUB_OUTPUT
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Save version as artifact
-        run: echo "${{ steps.next_version.outputs.version }}" > tag.txt
-
-      - name: Upload next tag artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-tag
-          path: tag.txt
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.21'
-
-      - name: Get tag version
-        id: tag
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-        working-directory: kindctl
-        shell: bash
 
       - name: Install zip on Windows
         if: matrix.os == 'windows-latest'
